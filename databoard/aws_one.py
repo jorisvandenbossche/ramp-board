@@ -16,6 +16,7 @@ from databoard.db_tools import update_all_user_leaderboards
 from databoard.db_tools import compute_contributivity
 from databoard.db_tools import compute_historical_contributivity
 from databoard.db_tools import score_submission
+from databoard.db_tools import get_submissions
 
 import boto3 # amazon api
 
@@ -26,18 +27,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def train_loop(event_name='pollenating_insects_3_JNI_2017', 
-               ami_image_id='ami-e5d72a9d', 
-               ami_username='ubuntu',
-               instance_type='g3.4xlarge', 
-               key_name='ramp.studio', 
-               ssh_key='/root/.ssh/amazon/rampstudio.pem',
-               security_group='launch-wizard-74',
-               sleep_time_secs=60, 
-               timeout_secs=60*5,
-               db_host='134.158.74.188',
-               db_url=None,
-               pgversion='9.3'):
+def train_one(event_name='pollenating_insects_3_JNI_2017',
+              submission_name=None,
+              team_name=None,
+              ami_image_id='ami-e5d72a9d', 
+              ami_username='ubuntu',
+              instance_type='g3.4xlarge', 
+              key_name='ramp.studio', 
+              ssh_key='/root/.ssh/amazon/rampstudio.pem',
+              security_group='launch-wizard-74',
+              sleep_time_secs=60, 
+              timeout_secs=60*5,
+              db_host='134.158.74.188',
+              db_url=None,
+              pgversion='9.3'):
         
     """
     Training loop for launching submissions to amazon ec2 through amazon API.
@@ -77,64 +80,70 @@ def train_loop(event_name='pollenating_insects_3_JNI_2017',
 
     ec2_resource = boto3.resource('ec2')
     ec2_client = boto3.client('ec2')
-    while True:
-        # Listen to new events
-        new_submission = get_earliest_new_submission(event_name)
-        if new_submission:
-            logging.info('Got new submission : "{}"'.format(new_submission))
-            instances = ec2_client.describe_instances(
-                Filters=[
-                    {
-                        'Name': 'tag:event_name',
-                        'Values':[event_name],
-                    },
-                    {
-                        'Name': 'tag:submission_id',
-                        'Values': [str(new_submission.id)],
-                    }
-                ]
-            )
-            nb_instances = len(instances['Reservations'])
-            instance_ids = [inst['Instances'][0]['InstanceId'] 
-                            for inst in instances['Reservations']]
-            nb_running =  sum([ec2_resource.Instance(instance_id).state['Name'] == 'running' 
-                               for instance_id in instance_ids])
-            if nb_running > 1:
-                logging.info(
-                    'There is more than one instance for the submission "{}". '
-                    'This should not happen. Please kill all except one of them.'.format(new_submission))
-                logging.info(instance_ids)
-            elif nb_running == 1:
-                logging.info(
-                    'There is already an instance for the submission "{}"' 
-                    'so I will not launch a new amazon instance.'.format(new_submission))
-            else:
-                # nb_running is 0
-                logging.info('Launching a new amazon instance for submission "{}"...'.format(new_submission))
-                tags = [
-                    {
-                        'ResourceType': 'instance',
-                        'Tags': [
-                            {'Key': 'event_name', 'Value': event_name},
-                            {'Key': 'submission_id', 'Value': str(new_submission.id)},
-                            {'Key': 'Name', 'Value': str(new_submission.id) + '_' + new_submission.name}
-                        ]
-                    }
-                ]
-                instance, = ec2_resource.create_instances(
-                    ImageId=ami_image_id, 
-                    MinCount=1, MaxCount=1, 
-                    InstanceType=instance_type, 
-                    KeyName=key_name,
-                    TagSpecifications=tags,
-                    SecurityGroups=[security_group],
-                )
-                new_submission.state = 'sent_to_training' 
-                db.session.commit()
+    print(event_name)
+    new_submissions = get_submissions(
+        event_name=event_name, 
+        team_name=team_name, 
+        submission_name=submission_name)
+    assert len(new_submissions) == 1
+    new_submission = new_submissions[0]
 
-                logging.info(
-                    'Launched the instance, the instance id is {}, '
-                    'launch time is : {}, Submission is "{}"'.format(instance.id, instance.launch_time, new_submission))
+    logging.info('Got new submission : "{}"'.format(new_submission))
+    instances = ec2_client.describe_instances(
+        Filters=[
+            {
+                'Name': 'tag:event_name',
+                'Values':[event_name],
+            },
+            {
+                'Name': 'tag:submission_id',
+                'Values': [str(new_submission.id)],
+            }
+        ]
+    )
+    nb_instances = len(instances['Reservations'])
+    instance_ids = [inst['Instances'][0]['InstanceId'] 
+                    for inst in instances['Reservations']]
+    nb_running =  sum([ec2_resource.Instance(instance_id).state['Name'] == 'running' 
+                       for instance_id in instance_ids])
+    if nb_running > 1:
+        logging.info(
+            'There is more than one instance for the submission "{}". '
+            'This should not happen. Please kill all except one of them.'.format(new_submission))
+        logging.info(instance_ids)
+    elif nb_running == 1:
+        logging.info(
+            'There is already an instance for the submission "{}"' 
+            'so I will not launch a new amazon instance.'.format(new_submission))
+    else:
+        # nb_running is 0
+        logging.info('Launching a new amazon instance for submission "{}"...'.format(new_submission))
+        tags = [
+            {
+                'ResourceType': 'instance',
+                'Tags': [
+                    {'Key': 'event_name', 'Value': event_name},
+                    {'Key': 'submission_id', 'Value': str(new_submission.id)},
+                    {'Key': 'Name', 'Value': str(new_submission.id) + '_' + new_submission.name}
+                ]
+            }
+        ]
+        instance, = ec2_resource.create_instances(
+            ImageId=ami_image_id, 
+            MinCount=1, MaxCount=1, 
+            InstanceType=instance_type, 
+            KeyName=key_name,
+            TagSpecifications=tags,
+            SecurityGroups=[security_group],
+        )
+        new_submission.state = 'sent_to_training' 
+        db.session.commit()
+
+        logging.info(
+            'Launched the instance, the instance id is {}, '
+            'launch time is : {}, Submission is "{}"'.format(instance.id, instance.launch_time, new_submission))
+
+    while True:
 
         # Process events
 
@@ -142,6 +151,7 @@ def train_loop(event_name='pollenating_insects_3_JNI_2017',
         instances = ec2_client.describe_instances(
             Filters=[
                 {'Name': 'tag:event_name', 'Values':[event_name]},
+                {'Name': 'tag:submission_id', 'Values': [str(new_submission.id)]},
                 {'Name': 'instance-state-name', 'Values': ['running']}
             ]
         )
@@ -222,6 +232,7 @@ def train_loop(event_name='pollenating_insects_3_JNI_2017',
                 compute_contributivity(event_name)
                 compute_historical_contributivity(event_name)
                 logging.info('Successfully finished training and testing the submission "{}"'.format(submission))
+                break
             elif submission.is_error:
                 # Steps
                 # 1) rsync the latest log file
@@ -233,6 +244,9 @@ def train_loop(event_name='pollenating_insects_3_JNI_2017',
                 # kill
                 logging.info('Killing the instance {}...'.format(instance_id))
                 ec2_resource.instances.filter(InstanceIds=[instance_id]).terminate()
+                update_leaderboards(submission.event.name)
+                update_all_user_leaderboards(submission.event.name)
+                break
             else:
                 # the submission is training, so just rsync the log
                 logging.info('Rsync the log of "{}"...'.format(submission))
@@ -241,7 +255,7 @@ def train_loop(event_name='pollenating_insects_3_JNI_2017',
         time.sleep(sleep_time_secs)
 
 
-def _add_postgresql_rule(ip, pgversion=9.3):
+def _add_postgresql_rule(ip, pgversion='9.3'):
     rule = 'host all mrramp {ip}/32 md5 # amazon'.format(ip=ip)
     pghba = "/etc/postgresql/{pgversion}/main/pg_hba.conf".format(pgversion=pgversion)
     
@@ -280,6 +294,7 @@ def _is_screen_launched(user, ip, ssh_key):
     nb = int(check_output(cmd, shell=True))
     return nb > 0
 
+
 def _train_test(user, ip, ssh_key, submission, db_url):
     values = {
         'user': user,
@@ -297,7 +312,7 @@ def _train_test(user, ip, ssh_key, submission, db_url):
            "fab train_test_on_server:e={e},t={t},s={s} 2>&1|tee log'\"".format(**values))
     logging.debug(cmd)
     exit_status = call(cmd, shell=True)
-    return  exit_status
+    return exit_status
 
 
 def _rsync_log(user, ip, ssh_key, submission):
@@ -317,8 +332,7 @@ if __name__ == '__main__':
             logging.getLogger(k).disabled = True
     profiles = {
         'prod':dict(
-    	      event_name='pollenating_insects_3_JNI_2017',
-              ami_image_id='ami-25d32f5d',
+              ami_image_id='ami-6d31f715',
               ami_username='ubuntu',
               instance_type='g3.4xlarge', 
               key_name='ramp.studio', 
@@ -330,8 +344,7 @@ if __name__ == '__main__':
               pgversion='9.3',
         ),
         'test':dict(
-              event_name='pollenating_insects_3',
-              ami_image_id='ami-25d32f5d', 
+              ami_image_id='ami-6d31f715', 
               ami_username='ubuntu',
               instance_type='g3.4xlarge', 
               key_name='test_server', 
@@ -344,12 +357,17 @@ if __name__ == '__main__':
         )
     }
     parser = argparse.ArgumentParser(description='AWS Training loop')
+    parser.add_argument('--submission', default='', help='submission name')
+    parser.add_argument('--event', default='', help='event name')
+    parser.add_argument('--team', default='', help='team name')
     parser.add_argument('--profile', default='test', help='prod/test')
-    parser.add_argument('--ami', default='ami-25d32f5d', help='ami image id')
-    parser.add_argument('--event', default='pollenating_insects_3_JNI_2017', help='event name')
-
+    parser.add_argument('--instance-type', default='g3.4xlarge', help='AWS instance type')
+    parser.add_argument('--ami', default='ami-6d31f715', help='AMI id')
     args = parser.parse_args()
     config = profiles[args.profile]
-    config['event_name']  = args.event
+    config['submission_name'] = args.submission
+    config['event_name'] = args.event
+    config['team_name'] = args.team
+    config['instance_type'] = args.instance_type
     config['ami_image_id'] = args.ami
-    train_loop(**config)
+    train_one(**config)
