@@ -19,3 +19,5 @@ psycopg2
 PyWavelets==0.5.1
 sqlalchemy>=1.0.9
 xkcdpass<=1.4.2
+termcolor
+bokeh
