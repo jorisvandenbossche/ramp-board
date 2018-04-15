@@ -4,6 +4,7 @@ cache: pip
 branches:
   only:
   - master
+  - travis
 env:
   - PYTHON_VERSION=2.7
   - PYTHON_VERSION=3.5
@@ -22,7 +23,9 @@ install:
     - source activate testenv
     - pip install -r testing-requirements.txt
 script:
-    - ls 
+    - initdb db
+    - pg_ctl -D db -l db/logfile start
+    - postgres createuser ubuntu
 after_success:
     - codecov
 notifications:
