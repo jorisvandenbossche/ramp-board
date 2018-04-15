@@ -21,7 +21,7 @@ install:
     - conda create -n testenv --yes pip python=$PYTHON_VERSION ipykernel
     - source activate testenv
     - pip install -r testing-requirements.txt
-    - pip install fabric
+    - pip install git+https://github.com/paris-saclay-cds/ramp-workflow
 script:
     - psql -U postgres -c "CREATE USER mrramp WITH PASSWORD 'mrramp';ALTER USER mrramp WITH SUPERUSER;"
     - export DATABOARD_TEST=True
