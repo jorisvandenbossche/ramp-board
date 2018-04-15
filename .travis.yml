@@ -23,6 +23,7 @@ install:
     - if [ $PYTHON_VERSION == "3.6" ]; then pip install fabric3; fi
     - if [ $PYTHON_VERSION == "3.5" ]; then pip install fabric3; fi
     - if [ $PYTHON_VERSION == "2.7" ]; then pip install fabric; fi
+    - python setup.py develop
 script:
     - psql -U postgres -c "CREATE USER mrramp WITH PASSWORD 'mrramp';ALTER USER mrramp WITH SUPERUSER;"
     - export DATABOARD_TEST=True
