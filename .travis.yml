@@ -6,7 +6,7 @@ branches:
   - master
   - travis
 env:
-  - PYTHON_VERSION=3.6 PG_VERSION=9.6 RAMP_ROOT=/home/travis/ramp
+  - PYTHON_VERSION=3.6 PG_VERSION=9.6
 before_install:
     - sudo apt-get install --yes postgresql-$PG_VERSION
     - sudo apt-get install --yes apache2
@@ -22,8 +22,9 @@ install:
     - pip install -r testing-requirements.txt
 script:
     - su postgres -c 'psql -c "CREATE USER mrramp WITH PASSWORD mrramp;ALTER USER mrramp WITH SUPERUSER;"'
-    - mkdir $RAMP_ROOT
-
+    - export DATABOARD_TEST=True
+    - export DATABOARD_DB_URL=postgresql://mrramp:mrramp@localhost/databoard_test
+    - export DATABOARD_DB_URL_TEST=postgresql://mrramp:mrramp@localhost/databoard_test
 after_success:
     - codecov
 notifications:
