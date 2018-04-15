@@ -11,6 +11,7 @@ env:
   - PYTHON_VERSION=3.6
   - PG_VERSION=9.6
 before_install:
+    - sudo apt-get install --yes "postgresql-$PG_VERSION"
     - sudo apt-get install --yes apache2
     - sudo apt-get install --yes libapache2-mod-wsgi
     - wget -q http://repo.continuum.io/miniconda/Miniconda-3.6.0-Linux-x86_64.sh -O miniconda.sh
@@ -23,8 +24,7 @@ install:
     - source activate testenv
     - pip install -r testing-requirements.txt
 script:
-    - /usr/lib/postgresql/$PG_VERSION/bin/initdb db
-    - /usr/lib/postgresql/$PG_VERSION/bin/pg_ctl -D db -l logfile start
+    - createuser --superuser travis
 after_success:
     - codecov
 notifications:
