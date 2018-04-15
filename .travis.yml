@@ -9,6 +9,7 @@ env:
   - PYTHON_VERSION=2.7
   - PYTHON_VERSION=3.5
   - PYTHON_VERSION=3.6
+  - PG_VERSION=9.6
 before_install:
     - sudo apt-get install --yes apache2
     - sudo apt-get install --yes libapache2-mod-wsgi
@@ -22,8 +23,8 @@ install:
     - source activate testenv
     - pip install -r testing-requirements.txt
 script:
-    - postgres init db
-    - postgres createuser ubuntu
+    - /usr/lib/postgresql/$PG_VERSION/bin/initdb db
+    - /usr/lib/postgresql/$PG_VERSION/bin/pg_ctl -D db -l logfile start
 after_success:
     - codecov
 notifications:
