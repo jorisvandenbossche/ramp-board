@@ -6,8 +6,6 @@ branches:
   - master
   - travis
 env:
-  - PYTHON_VERSION=2.7
-  - PYTHON_VERSION=3.5
   - PYTHON_VERSION=3.6
   - PG_VERSION=9.6
 before_install:
