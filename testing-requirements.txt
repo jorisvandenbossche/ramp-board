@@ -21,3 +21,4 @@ sqlalchemy>=1.0.9
 xkcdpass<=1.4.2
 termcolor
 bokeh
+scikit-image
