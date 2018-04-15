@@ -22,3 +22,4 @@ termcolor
 bokeh
 scikit-image
 matplotlib
+unidecode
