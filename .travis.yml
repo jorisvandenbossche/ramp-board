@@ -6,7 +6,7 @@ branches:
   - master
   - travis
 env:
-  - PYTHON_VERSION=3.6
+  - PYTHON_VERSION=2.7
 services:
   - postgres
 before_install:
