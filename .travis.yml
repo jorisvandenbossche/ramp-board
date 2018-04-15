@@ -10,7 +10,6 @@ env:
   - PYTHON_VERSION=3.5
   - PYTHON_VERSION=3.6
 before_install:
-    - sudo apt-get install --yes postgresql postgresql-contrib
     - sudo apt-get install --yes apache2
     - sudo apt-get install --yes libapache2-mod-wsgi
     - wget -q http://repo.continuum.io/miniconda/Miniconda-3.6.0-Linux-x86_64.sh -O miniconda.sh
@@ -23,8 +22,7 @@ install:
     - source activate testenv
     - pip install -r testing-requirements.txt
 script:
-    - initdb db
-    - pg_ctl -D db -l db/logfile start
+    - postgres init db
     - postgres createuser ubuntu
 after_success:
     - codecov
