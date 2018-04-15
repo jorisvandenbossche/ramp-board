@@ -20,7 +20,7 @@ install:
     - source activate testenv
     - pip install -r testing-requirements.txt
 script:
-    - su postgres -c 'psql -c "CREATE USER mrramp WITH PASSWORD mrramp;ALTER USER mrramp WITH SUPERUSER;"'
+    - psql -U postgres -c "CREATE USER mrramp WITH PASSWORD mrramp;ALTER USER mrramp WITH SUPERUSER;"
     - export DATABOARD_TEST=True
     - export DATABOARD_DB_URL=postgresql://mrramp:mrramp@localhost/databoard_test
     - export DATABOARD_DB_URL_TEST=postgresql://mrramp:mrramp@localhost/databoard_test
