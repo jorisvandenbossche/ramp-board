@@ -4,7 +4,6 @@ cache: pip
 branches:
   only:
   - master
-  - travis
 env:
   - PYTHON_VERSION=2.7
 services:
